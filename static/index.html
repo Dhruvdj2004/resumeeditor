@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resume Editor</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%236366f1'/%3E%3Cstop offset='1' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M11 9h7l4 4v10H11z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M14 17h5M14 20h3' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- Icon sprite -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-logo" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></symbol>
+      <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></symbol>
+      <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></symbol>
+      <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/></symbol>
+      <symbol id="i-code" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+      <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/><polyline points="12 7 12 12 15 14"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="nav">
+    <a class="brand" href="/">
+      <span class="brand-mark"><svg class="icon"><use href="#i-logo"/></svg></span>
+      <span>Resume Editor</span>
+    </a>
+    <div class="nav-right">
+      <label class="model-pill" title="AI model">
+        <span class="dot"></span>
+        <select id="provider" aria-label="AI model"></select>
+      </label>
+      <button id="newResume" class="btn btn-ghost" hidden>
+        <svg class="icon"><use href="#i-plus"/></svg><span>New resume</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================== Landing ===================== -->
+  <main id="landing" class="landing" hidden>
+    <section class="hero">
+      <span class="eyebrow"><svg class="icon"><use href="#i-spark"/></svg>AI-powered · LaTeX quality</span>
+      <h1>Edit your resume<br />by just asking.</h1>
+      <p class="lead">Upload your resume, describe the changes in plain English, and download a polished PDF. The layout stays intact.</p>
+
+      <div id="drop" class="dropzone" tabindex="0" role="button" aria-label="Upload resume">
+        <input id="file" type="file" accept=".pdf,.docx,.txt" hidden />
+        <div id="dropIdle" class="drop-idle">
+          <span class="drop-icon"><svg class="icon"><use href="#i-upload"/></svg></span>
+          <strong>Drop your resume here</strong>
+          <span class="muted">or</span>
+          <span class="btn btn-primary btn-lg">Choose file</span>
+          <span class="hint">PDF, DOCX or TXT · up to 5 MB</span>
+        </div>
+        <div id="dropBusy" class="drop-busy" hidden>
+          <div class="file-chip"><svg class="icon"><use href="#i-logo"/></svg><span id="fileName"></span></div>
+          <ol class="steps">
+            <li data-step="0"><span class="step-dot"></span>Reading your file</li>
+            <li data-step="1"><span class="step-dot"></span>Structuring the content</li>
+            <li data-step="2"><span class="step-dot"></span>Typesetting the PDF</li>
+          </ol>
+        </div>
+      </div>
+
+      <button id="continueBtn" class="continue-card" hidden>
+        <span class="continue-icon"><svg class="icon"><use href="#i-logo"/></svg></span>
+        <span class="continue-text">
+          <strong>Continue editing</strong>
+          <span id="continueMeta" class="muted small">Pick up where you left off</span>
+        </span>
+        <svg class="icon continue-arrow"><use href="#i-arrow"/></svg>
+      </button>
+    </section>
+
+    <section class="features">
+      <div class="feature">
+        <span class="feature-icon"><svg class="icon"><use href="#i-upload"/></svg></span>
+        <h3>1. Upload</h3>
+        <p>Your content is converted to clean LaTeX, keeping every section and highlight.</p>
+      </div>
+      <div class="feature">
+        <span class="feature-icon"><svg class="icon"><use href="#i-chat"/></svg></span>
+        <h3>2. Ask for changes</h3>
+        <p>"Add Kubernetes to skills", "rewrite my first bullet" — changes apply in seconds.</p>
+      </div>
+      <div class="feature">
+        <span class="feature-icon"><svg class="icon"><use href="#i-download"/></svg></span>
+        <h3>3. Download</h3>
+        <p>Get a print-ready PDF or the LaTeX source. Every version is saved.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== Editor ===================== -->
+  <main id="editor" class="editor" hidden>
+    <div class="mobile-tabs" role="tablist">
+      <button class="tab active" data-panel="chat" role="tab">Chat</button>
+      <button class="tab" data-panel="preview" role="tab">Preview</button>
+    </div>
+
+    <section class="panel chat-panel" data-name="chat">
+      <div class="panel-head">
+        <div>
+          <h2>Assistant</h2>
+          <p class="muted small">Describe what to change in your resume</p>
+        </div>
+      </div>
+
+      <div id="messages" class="messages" aria-live="polite"></div>
+
+      <div id="suggestions" class="suggestions">
+        <button class="chip">Make my bullet points more impactful</button>
+        <button class="chip">Fix grammar and typos</button>
+        <button class="chip">Add a new skill to my skills section</button>
+        <button class="chip">Shorten my resume to fit one page</button>
+      </div>
+
+      <form id="composer" class="composer">
+        <div class="composer-box">
+          <textarea id="input" rows="1" placeholder="Describe a change to your resume…"></textarea>
+          <button id="send" class="send" type="submit" aria-label="Send" disabled>
+            <svg class="icon"><use href="#i-send"/></svg>
+          </button>
+        </div>
+        <p class="composer-note"><svg class="icon"><use href="#i-lock"/></svg>Only resume edits are allowed · layout stays locked</p>
+      </form>
+    </section>
+
+    <section class="panel preview-panel" data-name="preview">
+      <div class="toolbar">
+        <div class="tool-group">
+          <label class="select-wrap" title="Version history">
+            <svg class="icon"><use href="#i-history"/></svg>
+            <select id="versions" aria-label="Version"></select>
+          </label>
+          <button id="undo" class="btn btn-ghost" title="Undo last change">
+            <svg class="icon"><use href="#i-undo"/></svg><span class="lbl">Undo</span>
+          </button>
+          <button id="restore" class="btn btn-ghost" hidden title="Make this version the current one">
+            <svg class="icon"><use href="#i-undo"/></svg><span class="lbl">Restore this version</span>
+          </button>
+        </div>
+        <div class="tool-group zoom">
+          <button id="zoomOut" class="icon-btn" aria-label="Zoom out"><svg class="icon"><use href="#i-zoom-out"/></svg></button>
+          <span id="zoomLabel" class="zoom-label">Fit</span>
+          <button id="zoomIn" class="icon-btn" aria-label="Zoom in"><svg class="icon"><use href="#i-zoom-in"/></svg></button>
+          <button id="zoomFit" class="icon-btn" aria-label="Fit to width"><svg class="icon"><use href="#i-fit"/></svg></button>
+        </div>
+        <div class="tool-group">
+          <a id="dlTex" class="btn btn-secondary" title="Download LaTeX source">
+            <svg class="icon"><use href="#i-code"/></svg><span class="lbl">LaTeX</span>
+          </a>
+          <a id="dlPdf" class="btn btn-primary">
+            <svg class="icon"><use href="#i-download"/></svg><span>Download PDF</span>
+          </a>
+        </div>
+      </div>
+
+      <div id="viewer" class="viewer">
+        <div id="pages" class="pages"></div>
+        <div id="viewerLoading" class="viewer-loading" hidden><span class="spinner"></span></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toasts" class="toasts" aria-live="assertive"></div>
+
+  <script src="/static/vendor/pdf.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

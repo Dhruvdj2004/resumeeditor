@@ -1,0 +1,176 @@
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+
+from . import config, llm, storage
+from .compiler import CompileError, compile_pdf
+from .extractor import ExtractionError, extract_text, missing_lines
+from .latex import ValidationError, join_tex, render_resume, repair_json_escapes, split_tex, validate_body
+from .prompts import EDIT_SYSTEM, EXTRACT_SYSTEM, edit_user_message
+
+app = FastAPI(title="Resume Editor")
+storage.init()
+
+
+@app.middleware("http")
+async def no_stale_frontend(request, call_next):
+    # Make browsers revalidate the page and its JS/CSS on every load, so an updated
+    # frontend is picked up immediately (unchanged files still return a cheap 304).
+    response = await call_next(request)
+    path = request.url.path
+    if path == "/" or (path.startswith("/static/") and not path.startswith("/static/vendor/")):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+class EditRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    provider: str | None = None
+
+
+def _require_session(sid: str) -> None:
+    if not storage.session_exists(sid):
+        raise HTTPException(404, "Session not found")
+
+
+@app.get("/api/config")
+def get_config():
+    names = llm.available_providers()
+    return {"providers": [{"id": n, "label": llm.LABELS[n]} for n in names]}
+
+
+async def _structure_resume(text: str, provider: str | None) -> tuple[dict, str]:
+    """Ask the LLM for structured JSON, and re-ask if it silently dropped any content."""
+    user = f"RESUME TEXT:\n{text}"
+    best, best_missing, used = None, None, None
+    for _ in range(config.MAX_EDIT_RETRIES + 1):
+        data, name = await llm.complete_json_with_provider(EXTRACT_SYSTEM, user, provider)
+        missing = missing_lines(text, data)
+        if best is None or len(missing) < len(best_missing):
+            best, best_missing, used = data, missing, name
+        if not missing:
+            break
+        user = (
+            f"RESUME TEXT:\n{text}\n\nYOUR PREVIOUS ANSWER LEFT OUT THESE LINES. Include every one of "
+            "them, in its original section and position, and return the complete JSON again:\n"
+            + "\n".join(missing)
+        )
+    return best, used
+
+
+@app.post("/api/upload")
+async def upload(file: UploadFile = File(...), provider: str | None = None):
+    content = await file.read()
+    if len(content) > config.MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File is larger than 5 MB")
+    try:
+        text = extract_text(file.filename or "", content)
+        data, used = await _structure_resume(text, provider)
+        tex = render_resume(data)
+        pdf = await compile_pdf(tex)
+    except ExtractionError as e:
+        raise HTTPException(400, str(e))
+    except llm.LLMError as e:
+        raise HTTPException(502, str(e))
+    except CompileError as e:
+        raise HTTPException(500, f"Could not compile the generated LaTeX: {e}")
+
+    sid = storage.create_session(file.filename or "resume")
+    version = storage.add_version(sid, tex, pdf, "Imported from uploaded file")
+    return {"session_id": sid, "version": version, "provider": llm.LABELS[used]}
+
+
+@app.post("/api/sessions/{sid}/edit")
+async def edit(sid: str, req: EditRequest):
+    _require_session(sid)
+    current = storage.get_version(sid)
+    head, body, tail = split_tex(current["tex"])
+
+    error = None
+    preferred = req.provider
+    providers = llm.available_providers()
+    for _ in range(config.MAX_EDIT_RETRIES + 1):
+        try:
+            result, used = await llm.complete_json_with_provider(
+                EDIT_SYSTEM, edit_user_message(body, req.message, error), preferred
+            )
+        except llm.LLMError as e:
+            raise HTTPException(502, str(e))
+        # If this answer turns out unusable, give the retry to the next provider rather than
+        # asking the same (possibly weaker) model again.
+        if len(providers) > 1:
+            preferred = providers[(providers.index(used) + 1) % len(providers)]
+
+        if result.get("status") == "refused":
+            return {"status": "refused", "message": result.get("reason") or "I can only edit your resume."}
+
+        new_body = repair_json_escapes(str(result.get("body") or ""))
+        try:
+            validate_body(body, new_body)
+            new_tex = join_tex(head, new_body, tail)
+            pdf = await compile_pdf(new_tex)
+        except (ValidationError, CompileError) as e:
+            error = str(e)
+            continue
+
+        summary = str(result.get("summary") or "Updated resume")
+        version = storage.add_version(sid, new_tex, pdf, summary, req.message)
+        return {"status": "ok", "message": summary, "version": version, "provider": llm.LABELS[used]}
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "status": "error",
+            "message": f"The edit could not be applied safely, so your resume was left unchanged. Last problem: {error}",
+        },
+    )
+
+
+@app.get("/api/sessions/{sid}/versions")
+def versions(sid: str):
+    _require_session(sid)
+    return storage.list_versions(sid)
+
+
+def _version_or_404(sid: str, version: int):
+    row = storage.get_version(sid, version)
+    if not row:
+        raise HTTPException(404, "Version not found")
+    return row
+
+
+@app.get("/api/sessions/{sid}/versions/{version}/pdf")
+def version_pdf(sid: str, version: int, download: bool = False):
+    row = _version_or_404(sid, version)
+    disposition = "attachment" if download else "inline"
+    return Response(
+        row["pdf"],
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'{disposition}; filename="resume_v{version}.pdf"'},
+    )
+
+
+@app.get("/api/sessions/{sid}/versions/{version}/tex")
+def version_tex(sid: str, version: int):
+    row = _version_or_404(sid, version)
+    return Response(
+        row["tex"],
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="resume_v{version}.tex"'},
+    )
+
+
+@app.post("/api/sessions/{sid}/revert/{version}")
+def revert(sid: str, version: int):
+    row = _version_or_404(sid, version)
+    new_v = storage.add_version(sid, row["tex"], row["pdf"], f"Reverted to version {version}")
+    return {"status": "ok", "version": new_v, "message": f"Reverted to version {version}"}
+
+
+@app.get("/")
+def index():
+    return FileResponse(config.STATIC_DIR / "index.html")
+
+
+app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
