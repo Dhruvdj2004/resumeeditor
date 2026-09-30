@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import time
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -11,6 +13,7 @@ from .extractor import ExtractionError, extract_text, missing_lines
 from .latex import ValidationError, join_tex, render_resume, repair_json_escapes, split_tex, validate_body
 from .prompts import EDIT_SYSTEM, EXTRACT_SYSTEM, edit_user_message
 
+log = logging.getLogger("uvicorn.error")
 app = FastAPI(title="Resume Editor")
 storage.init()
 
@@ -89,9 +92,12 @@ async def _structure_resume(text: str, provider: str | None) -> tuple[dict, str]
     """Ask the LLM for structured JSON, and re-ask if it silently dropped any content."""
     user = f"RESUME TEXT:\n{text}"
     best, best_missing, used = None, None, None
-    for _ in range(config.MAX_EDIT_RETRIES + 1):
+    for attempt in range(config.MAX_EDIT_RETRIES + 1):
+        t = time.monotonic()
         data, name = await llm.complete_json_with_provider(EXTRACT_SYSTEM, user, provider)
         missing = missing_lines(text, data)
+        log.info("upload: structure attempt %d via %s took %.1fs, %d lines missing",
+                 attempt + 1, name, time.monotonic() - t, len(missing))
         if best is None or len(missing) < len(best_missing):
             best, best_missing, used = data, missing, name
         if not missing:
@@ -113,7 +119,9 @@ async def upload(file: UploadFile = File(...), provider: str | None = None):
         text = extract_text(file.filename or "", content)
         data, used = await _structure_resume(text, provider)
         tex = render_resume(data)
+        t = time.monotonic()
         pdf = await compile_pdf(tex)
+        log.info("upload: compile took %.1fs", time.monotonic() - t)
     except ExtractionError as e:
         raise HTTPException(400, str(e))
     except llm.LLMError as e:
@@ -135,7 +143,8 @@ async def edit(sid: str, req: EditRequest):
     error = None
     preferred = req.provider
     providers = llm.available_providers()
-    for _ in range(config.MAX_EDIT_RETRIES + 1):
+    for attempt in range(config.MAX_EDIT_RETRIES + 1):
+        t = time.monotonic()
         try:
             result, used = await llm.complete_json_with_provider(
                 EDIT_SYSTEM, edit_user_message(body, req.message, error), preferred
@@ -157,7 +166,9 @@ async def edit(sid: str, req: EditRequest):
             pdf = await compile_pdf(new_tex)
         except (ValidationError, CompileError) as e:
             error = str(e)
+            log.info("edit: attempt %d via %s failed after %.1fs: %s", attempt + 1, used, time.monotonic() - t, error[:200])
             continue
+        log.info("edit: attempt %d via %s succeeded in %.1fs", attempt + 1, used, time.monotonic() - t)
 
         summary = str(result.get("summary") or "Updated resume")
         version = storage.add_version(sid, new_tex, pdf, summary, req.message)

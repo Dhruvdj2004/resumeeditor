@@ -346,6 +346,7 @@ new ResizeObserver(() => {
 /* ---------------- Upload ---------------- */
 
 let stepTimers = [];
+let elapsedTimer = null;
 
 function setStep(i) {
   document.querySelectorAll(".steps li").forEach((li) => {
@@ -357,6 +358,7 @@ function setStep(i) {
 
 function resetDropzone() {
   stepTimers.forEach(clearTimeout);
+  clearInterval(elapsedTimer);
   $("drop").classList.remove("busy", "over");
   $("dropIdle").hidden = false;
   $("dropBusy").hidden = true;
@@ -374,6 +376,12 @@ async function upload(file) {
   $("fileName").textContent = file.name;
   setStep(0);
   stepTimers = [setTimeout(() => setStep(1), 1200), setTimeout(() => setStep(2), 9000)];
+  const started = Date.now();
+  $("uploadElapsed").textContent = "0s";
+  clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => {
+    $("uploadElapsed").textContent = `${Math.round((Date.now() - started) / 1000)}s`;
+  }, 1000);
 
   const form = new FormData();
   form.append("file", file);
@@ -381,6 +389,7 @@ async function upload(file) {
     const provider = encodeURIComponent($("provider").value || "");
     const data = await api(`/api/upload?provider=${provider}`, { method: "POST", body: form });
     stepTimers.forEach(clearTimeout);
+    clearInterval(elapsedTimer);
     setStep(3);
     state.sessionId = data.session_id;
     state.zoom = "fit";
