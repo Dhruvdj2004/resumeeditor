@@ -1,0 +1,28 @@
+# Render Blueprint: New > Blueprint > pick this repo. You'll be asked for the secret values.
+services:
+  - type: web
+    name: resumeeditor
+    runtime: docker
+    # The free plan has no persistent disk: resumes are wiped whenever the service restarts
+    # or sleeps. For saved history, switch to "starter" and uncomment the disk below.
+    plan: free
+    healthCheckPath: /
+    # disk:
+    #   name: data
+    #   mountPath: /data
+    #   sizeGB: 1
+    envVars:
+      - key: APP_EMAIL
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
+      - key: PROVIDER_ORDER
+        value: groq,cerebras,gemini,openrouter
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false

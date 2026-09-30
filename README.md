@@ -16,6 +16,15 @@ uvicorn app.main:app --reload --port 8000
 Open http://localhost:8000. Requires `tectonic` (`brew install tectonic`); the first
 compile downloads LaTeX packages, so it takes longer.
 
+## Deploy (Docker)
+
+The `Dockerfile` installs Tectonic and pre-downloads the LaTeX packages at build time, so it
+runs on any Docker host (Render, Railway, Fly.io). `render.yaml` is a ready Render Blueprint.
+
+Set these on the host: your AI key(s), plus `APP_EMAIL` and `APP_PASSWORD` so only that account
+can sign in. Resumes live in SQLite under `DATA_DIR` (`/data` in the image); mount a persistent
+disk/volume there, or they are lost when the service restarts.
+
 ## AI providers
 
 Add one or more keys to `.env`. Providers are tried in `PROVIDER_ORDER`; if one is busy,
@@ -42,6 +51,7 @@ Restart the server after changing `.env`.
 | `app/templates/resume.tex.j2` | The LaTeX resume template |
 | `app/compiler.py` | Tectonic compile (`--untrusted`, timeout, temp dir) |
 | `app/storage.py` | SQLite version history |
+| `app/auth.py` | Single-account login (signed cookie) |
 | `static/` | Frontend (chat + PDF.js preview) |
 
 ## Edit pipeline

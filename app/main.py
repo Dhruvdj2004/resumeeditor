@@ -1,9 +1,11 @@
-from fastapi import FastAPI, File, HTTPException, UploadFile
+import asyncio
+
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import config, llm, storage
+from . import auth, config, llm, storage
 from .compiler import CompileError, compile_pdf
 from .extractor import ExtractionError, extract_text, missing_lines
 from .latex import ValidationError, join_tex, render_resume, repair_json_escapes, split_tex, validate_body
@@ -11,6 +13,17 @@ from .prompts import EDIT_SYSTEM, EXTRACT_SYSTEM, edit_user_message
 
 app = FastAPI(title="Resume Editor")
 storage.init()
+
+
+PUBLIC_API = {"/api/login", "/api/logout"}
+
+
+@app.middleware("http")
+async def require_login(request, call_next):
+    path = request.url.path
+    if path.startswith("/api/") and path not in PUBLIC_API and not auth.token_valid(request.cookies.get(auth.COOKIE)):
+        return JSONResponse(status_code=401, content={"detail": "Please sign in"})
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -21,6 +34,38 @@ async def no_stale_frontend(request, call_next):
     path = request.url.path
     if path == "/" or (path.startswith("/static/") and not path.startswith("/static/vendor/")):
         response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(max_length=320)
+    password: str = Field(max_length=200)
+
+
+@app.post("/api/login")
+async def login(req: LoginRequest, request: Request):
+    ip = request.client.host if request.client else "?"
+    if auth.locked_out(ip):
+        raise HTTPException(429, "Too many failed attempts. Try again in 15 minutes.")
+    if not auth.check_credentials(ip, req.email, req.password):
+        await asyncio.sleep(1)  # slow down password guessing
+        raise HTTPException(401, "Wrong email or password")
+    response = JSONResponse({"status": "ok"})
+    response.set_cookie(
+        auth.COOKIE,
+        auth.make_token(),
+        max_age=config.LOGIN_DAYS * 86400,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+    )
+    return response
+
+
+@app.post("/api/logout")
+def logout():
+    response = JSONResponse({"status": "ok"})
+    response.delete_cookie(auth.COOKIE)
     return response
 
 
@@ -37,7 +82,7 @@ def _require_session(sid: str) -> None:
 @app.get("/api/config")
 def get_config():
     names = llm.available_providers()
-    return {"providers": [{"id": n, "label": llm.LABELS[n]} for n in names]}
+    return {"providers": [{"id": n, "label": llm.LABELS[n]} for n in names], "login": auth.enabled()}
 
 
 async def _structure_resume(text: str, provider: str | None) -> tuple[dict, str]:

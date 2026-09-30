@@ -17,13 +17,20 @@ const state = {
   renderToken: 0,
   busy: false,
   loaded: false,       // editor has this session's chat + PDF loaded
+  loginEnabled: false, // server requires a login
 };
 
 const icon = (name) => `<svg class="icon"><use href="#i-${name}"/></svg>`;
 
+class AuthError extends Error {}
+
 async function api(path, options = {}) {
   const res = await fetch(path, options);
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && path !== "/api/login") {
+    showLogin();
+    throw new AuthError("Please sign in");
+  }
   if (!res.ok && !data.status) throw new Error(data.detail || data.message || `Request failed (${res.status})`);
   return data;
 }
@@ -44,7 +51,19 @@ function toast(text, kind = "err") {
 // Two views: home ("/") and editor ("#editor"). Using the URL hash lets the browser's
 // Back/Forward buttons move between them, and a reload stays on the current view.
 
+function showLogin() {
+  $("login").hidden = false;
+  $("landing").hidden = true;
+  $("editor").hidden = true;
+  $("newResume").hidden = true;
+  $("logout").hidden = true;
+  $("loginError").hidden = true;
+  $("loginEmail").focus();
+}
+
 function showLanding({ push = true } = {}) {
+  $("login").hidden = true;
+  $("logout").hidden = !state.loginEnabled;
   $("landing").hidden = false;
   $("editor").hidden = true;
   $("newResume").hidden = true;
@@ -54,6 +73,8 @@ function showLanding({ push = true } = {}) {
 }
 
 function showEditor({ push = true } = {}) {
+  $("login").hidden = true;
+  $("logout").hidden = !state.loginEnabled;
   $("landing").hidden = true;
   $("editor").hidden = false;
   $("newResume").hidden = false;
@@ -381,6 +402,7 @@ async function loadConfig() {
   const sel = $("provider");
   try {
     const cfg = await api("/api/config");
+    state.loginEnabled = cfg.login;
     sel.innerHTML = "";
     if (!cfg.providers.length) {
       sel.innerHTML = "<option>No API key</option>";
@@ -400,7 +422,8 @@ async function loadConfig() {
     sel.title = cfg.providers.length > 1
       ? "Auto tries each provider in turn if one is busy"
       : "AI model";
-  } catch {
+  } catch (e) {
+    if (e instanceof AuthError) throw e;
     sel.innerHTML = "<option>Offline</option>";
   }
 }
@@ -488,8 +511,38 @@ window.addEventListener("popstate", () => {
   }
 });
 
-(async function init() {
-  await loadConfig();
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("loginBtn").disabled = true;
+  $("loginError").hidden = true;
+  try {
+    await api("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: $("loginEmail").value, password: $("loginPassword").value }),
+    });
+    $("loginPassword").value = "";
+    await start();
+  } catch (err) {
+    $("loginError").textContent = err.message;
+    $("loginError").hidden = false;
+  } finally {
+    $("loginBtn").disabled = false;
+  }
+});
+
+$("logout").addEventListener("click", async () => {
+  await api("/api/logout", { method: "POST" }).catch(() => {});
+  state.loaded = false;
+  showLogin();
+});
+
+async function start() {
+  try {
+    await loadConfig();
+  } catch {
+    return; // not signed in: the login screen is showing
+  }
   if (state.sessionId && location.hash === "#editor") {
     try {
       await openSession({ push: false });
@@ -499,4 +552,6 @@ window.addEventListener("popstate", () => {
     }
   }
   showLanding({ push: false });
-})();
+}
+
+start();

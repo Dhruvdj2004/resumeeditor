@@ -182,6 +182,22 @@ h1, h2, h3, p { margin: 0; }
 .continue-arrow { color: var(--muted); transition: transform .15s, color .15s; }
 .continue-card:hover .continue-arrow { transform: translateX(3px); color: var(--primary); }
 
+.login-card {
+  max-width: 380px; margin: 24px auto 0; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-md); padding: 28px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+}
+.login-card h2 { margin: 0; font-size: 20px; }
+.login-card p { margin: 0; }
+.login-card .btn { width: 100%; margin-top: 4px; }
+.field { width: 100%; display: flex; flex-direction: column; gap: 6px; text-align: left; font-size: 13px; font-weight: 500; color: var(--text-2); }
+.field input {
+  height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text); font: inherit; font-size: 14.5px;
+}
+.field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.login-error { width: 100%; color: var(--danger); background: var(--danger-soft); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; }
+
 .features {
   max-width: 880px; margin: 56px auto 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
 }
